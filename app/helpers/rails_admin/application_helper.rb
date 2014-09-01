@@ -57,8 +57,6 @@ module RailsAdmin
         nodes = nodes.select { |n| n.parent.nil? || !n.parent.to_s.in?(node_model_names) }
         li_stack = navigation nodes_stack, nodes
 
-        label = navigation_label || t('admin.misc.navigation')
-        %(<li class='nav-header'>#{label}</li>#{li_stack}) if li_stack.present?
       end.join.html_safe
     end
 
@@ -78,7 +76,6 @@ module RailsAdmin
         url         = url_for(action: :index, controller: 'rails_admin/main', model_name: model_param)
         level_class = " nav-level-#{level}" if level > 0
         nav_icon = node.navigation_icon ? %(<i class="#{node.navigation_icon}"></i>).html_safe : ''
-
         li = content_tag :li, 'data-model' => model_param do
           link_to nav_icon + node.label_plural, url, class: "pjax#{level_class}"
         end
@@ -91,21 +88,24 @@ module RailsAdmin
         (parent_actions ||= []) << action
       end while action.breadcrumb_parent && (action = action(*action.breadcrumb_parent)) # rubocop:disable Loop
 
-      content_tag(:ul, class: 'breadcrumb') do
+      content_tag(:ol, class: 'breadcrumb') do
         parent_actions.collect do |a|
           am = a.send(:eval, 'bindings[:abstract_model]')
           o = a.send(:eval, 'bindings[:object]')
           content_tag(:li, class: current_action?(a, am, o) && 'active') do
             crumb = begin
-              if a.http_methods.include?(:get)
-                link_to url_for(action: a.action_name, controller: 'rails_admin/main', model_name: am.try(:to_param), id: (o.try(:persisted?) && o.try(:id) || nil)), class: 'pjax' do
-                  wording_for(:breadcrumb, a, am, o)
+              if not current_action?(a, am, o)
+                if a.http_methods.include?(:get)
+                  link_to url_for(action: a.action_name, controller: 'rails_admin/main', model_name: am.try(:to_param), id: (o.try(:persisted?) && o.try(:id) || nil)), class: 'pjax' do
+                    wording_for(:breadcrumb, a, am, o)
+                  end
+                else
+                  content_tag(:span, wording_for(:breadcrumb, a, am, o))
                 end
               else
-                content_tag(:span, wording_for(:breadcrumb, a, am, o))
+                wording_for(:breadcrumb, a, am, o)
               end
             end
-            crumb += content_tag(:span, '/', class: 'divider') unless current_action?(a, am, o)
             crumb
           end
         end.reverse.join.html_safe
